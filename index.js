@@ -5,7 +5,7 @@ const app = express();
 
 const backends = [
   { url: 'https://2mathewww.github.io', alive: true },
-  { url: 'https://2www.netlify.app', alive: true },
+  { url: 'https://bright-klepon-1389ec.netlify.app', alive: true },
 ];
 
 let index = 0;
