@@ -4,42 +4,45 @@ const axios = require('axios');
 const app = express();
 
 const backends = [
-  { url: 'https://2mathewww.github.io', alive: false },
-  { url: 'https://2www.netlify.app', alive: false },
+  { url: 'https://2mathewww.github.io', alive: true },
+  { url: 'https://2www.netlify.app', alive: true },
 ];
 
 let index = 0;
 
-async function checkBackend(b) {
-  try {
-    const r = await axios.get(b.url, {
-      timeout: 5000,
-      validateStatus: () => true,
-    });
-    b.alive = r.status >= 200 && r.status < 500;
-  } catch {
-    b.alive = false;
-  }
-}
+const stats = {};
+backends.forEach(b => {
+  stats[b.url] = { hits: 0, errors: 0, last: null };
+});
 
-async function checkAll() {
-  for (const b of backends) await checkBackend(b);
-}
-
-setInterval(checkAll, 30000);
-checkAll();
-
-function getBackend() {
+function nextBackend() {
   const alive = backends.filter(b => b.alive);
   if (!alive.length) return null;
   const b = alive[index % alive.length];
   index++;
-  return b.url;
+  return b;
 }
 
+setInterval(async () => {
+  for (const b of backends) {
+    try {
+      await axios.get(b.url, { timeout: 5000 });
+      b.alive = true;
+    } catch {
+      b.alive = false;
+    }
+  }
+}, 30000);
+
+app.get('/stats.json', (req, res) => {
+  res.json(stats);
+});
+
 app.use(async (req, res) => {
-  const base = getBackend();
-  if (!base) return res.status(503).end();
+  const backend = nextBackend();
+  if (!backend) return res.status(503).end();
+
+  const target = backend.url + req.originalUrl;
 
   try {
     const headers = { ...req.headers };
@@ -47,7 +50,7 @@ app.use(async (req, res) => {
     delete headers['content-length'];
 
     const r = await axios({
-      url: base + req.originalUrl,
+      url: target,
       method: req.method,
       headers,
       responseType: 'arraybuffer',
@@ -55,25 +58,19 @@ app.use(async (req, res) => {
       validateStatus: () => true,
     });
 
-    res.status(r.status);
+    stats[backend.url].hits++;
+    stats[backend.url].last = Date.now();
 
+    res.status(r.status);
     for (const [k, v] of Object.entries(r.headers)) {
       if (k !== 'content-encoding') res.setHeader(k, v);
     }
 
     res.send(r.data);
   } catch {
+    stats[backend.url].errors++;
     res.status(502).end();
   }
-});
-
-app.get('/stats.json', (req, res) => {
-  res.json({
-    backends: backends.map(b => ({
-      url: b.url,
-      alive: b.alive
-    }))
-  });
 });
 
 app.listen(3000);
