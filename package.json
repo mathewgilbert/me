@@ -1,0 +1,16 @@
+{
+  "name": "me",
+  "version": "1.0.0",
+  "description": "eeee",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "express": "^5.2.1"
+  }
+}
